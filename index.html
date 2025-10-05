@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LoM — Arcana Character Sheet</title>
+<style>
+  :root{
+    --bg:#0f0f11; --panel:#141417; --ink:#e8e8ea; --muted:#a7a7ad; --accent:#d0b36e; --accent-2:#735c2e; --danger:#c74b4b; --ok:#59b36c; --grid:#22222a;
+    --tab:#1a1a20; --tab-border:#2b2b34; --tab-active:#202029; --tab-ind:#c8aa63;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:radial-gradient(1000px 600px at 120% -20%, #2c2c31 0%, #15151a 45%, #0f0f11 100%);
+    color:var(--ink);
+    font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial,sans-serif
+  }
+  h1,h2{margin:0 0 .5rem 0; font-weight:700; letter-spacing:.4px}
+  h1{font-size:1.6rem}
+  h2{font-size:1.1rem; color:var(--accent)}
+  .wrap{max-width:1100px;margin:24px auto;padding:0 16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .panel{
+    background:linear-gradient(180deg, #17171b 0%, #101015 100%);
+    border:1px solid var(--grid); border-radius:14px; padding:14px;
+    box-shadow:0 1px 0 #000, inset 0 1px 0 rgba(255,255,255,.04)
+  }
+  label{font-size:.8rem;color:var(--muted)}
+  input[type="text"], input[type="number"], select, textarea{
+    width:100%; background:#0e0e12; color:var(--ink); border:1px solid #2a2a32; border-radius:10px; padding:8px 10px; outline:none
+  }
+  input[type="number"]{appearance:textfield}
+  textarea{min-height:80px; resize:vertical}
+  .field{flex:1 1 140px}
+  .small{flex:0 0 110px}
+  .mini{flex:0 0 80px}
+  .btn{background:linear-gradient(180deg,#2a2a33,#1e1e26); color:var(--ink); border:1px solid #34343f; padding:8px 12px; border-radius:10px; cursor:pointer}
+  .btn:hover{filter:brightness(1.07)}
+  .btn.ghost{background:transparent}
+  .btn.accent{background:linear-gradient(180deg,#c8aa63,#a88a43); border-color:#b89a53; color:#181818}
+  .btn.danger{border-color:#5a2222; background:linear-gradient(180deg,#6b2626,#451717); color:#f3dada}
+  .pill{padding:4px 8px; border-radius:999px; background:#1a1a22; border:1px solid #30303a; font-size:.78rem; color:var(--muted)}
+  .grid{display:grid;gap:14px}
+  .cols-3{grid-template-columns:1.1fr 1.3fr 1fr}
+  .kpi{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
+  .kpi .box{background:#0f0f14;border:1px solid #2a2a33;border-radius:12px;padding:10px;text-align:center}
+  .kpi .box h3{margin:2px 0 6px 0; font-size:.78rem; color:var(--muted)}
+  .kpi .box input{width:100%; text-align:center; font-weight:700}
+  .hr{height:1px;background:#22222a;margin:12px 0}
+  table{width:100%; border-collapse:collapse}
+  th,td{border-bottom:1px solid #24242b; padding:8px 6px; text-align:left}
+  th{color:var(--muted); font-weight:600; font-size:.86rem}
+  .right{text-align:right}
+  .muted{color:var(--muted)}
+  .total{font-weight:700}
+  .tally{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .tag{border:1px solid #33333c; border-radius:999px; padding:4px 8px; color:#cfcfd6; font-size:.78rem}
+
+  /* Tabs — modern pill bar with animated indicator */
+  .tabs{position:sticky; top:0; z-index:10; margin:10px 0 16px 0; background:linear-gradient(180deg, rgba(20,20,25,.85), rgba(10,10,15,.85)); backdrop-filter:blur(8px); border:1px solid var(--tab-border); border-radius:14px; overflow:hidden}
+  .tabbar{display:flex; position:relative; gap:0; border-bottom:1px solid var(--tab-border)}
+  .tabbtn{
+    flex:1 1 auto; text-align:center; padding:10px 12px; cursor:pointer; background:var(--tab); color:#cfcfd6; border:0; font-weight:600;
+    letter-spacing:.2px; transition:filter .15s ease
+  }
+  .tabbtn:hover{filter:brightness(1.06)}
+  .tabbtn.active{color:#fff; background:var(--tab-active)}
+  .tab-indicator{
+    position:absolute; bottom:0; height:2px; width:25%; left:0; background:var(--tab-ind); transition:left .22s ease, width .22s ease
+  }
+  .tabcontent{display:none; padding:12px}
+  .tabcontent.active{display:block}
+
+  /* Print */
+  @media print{
+    body{background:#fff;color:#000}
+    .tabs,.btn{display:none !important}
+    .panel{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="row" style="align-items:center; justify-content:space-between; margin-bottom:12px">
+      <h1>LoM — Arcana Character Sheet</h1>
+      <div class="tally">
+        <button class="btn" id="saveBtn" title="Save to browser">Save</button>
+        <button class="btn ghost" id="loadBtn" title="Load from browser">Load</button>
+        <button class="btn ghost" id="exportBtn" title="Export JSON">Export</button>
+        <button class="btn ghost" id="importBtn" title="Import JSON">Import</button>
+        <button class="btn ghost" id="resetBtn" title="Clear all">Reset</button>
+        <span class="pill" id="autosaveState">autosave: on</span>
+      </div>
+    </header>
+
+    <!-- Tabs -->
+    <section class="tabs panel">
+      <div class="tabbar" id="tabbar">
+        <button class="tabbtn active" data-tab="attributes">Attributes</button>
+        <button class="tabbtn" data-tab="skills">Skills</button>
+        <button class="tabbtn" data-tab="abilities">Abilities</button>
+        <button class="tabbtn" data-tab="inventory">Inventory</button>
+        <span class="tab-indicator" id="tabIndicator" style="left:0%"></span>
+      </div>
+      <!-- ATTRIBUTES TAB -->
+      <div id="tab-attributes" class="tabcontent active">
+        <!-- Identity & Meta -->
+        <section class="panel">
+          <h2>Identity</h2>
+          <div class="row">
+            <div class="field"><label>Character Name</label><input id="name" type="text"></div>
+            <div class="field"><label>Pathway</label><input id="pathway" type="text" placeholder="e.g., The Magician"></div>
+            <div class="small"><label>Sequence</label><input id="sequence" type="number" min="0" max="9" step="1"></div>
+            <div class="field"><label>Affiliation / Faction</label><input id="faction" type="text"></div>
+            <div class="field"><label>Origin / Nation</label><input id="origin" type="text"></div>
+            <div class="field"><label>Patron Deity</label><input id="deity" type="text"></div>
+            <div class="field"><label>Alignment</label><input id="alignment" type="text"></div>
+          </div>
+        </section>
+
+        <div class="grid cols-3">
+          <section class="panel">
+            <h2>Attributes</h2>
+            <div class="kpi" id="attrGrid"><!-- generated by JS --></div>
+            <div class="hr"></div>
+            <div class="row">
+              <div class="mini"><label>Seq. Bonus</label><input id="seqBonus" type="number" step="1" value="0"></div>
+              <div class="mini"><label>Defense</label><input id="defense" type="number" step="1" value="10"></div>
+              <div class="mini"><label>Instinct</label><input id="instinct" type="number" step="1" value="0"></div>
+              <div class="mini"><label>Agility</label><input id="agility" type="number" step="1" value="30"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>Vitality & Corruption</h2>
+            <div class="row">
+              <div class="mini"><label>Vitality (Max)</label><input id="vitMax" type="number" value="10"></div>
+              <div class="mini"><label>Vitality (Now)</label><input id="vitNow" type="number" value="10"></div>
+              <div class="mini"><label>Reserve Vitality</label><input id="vitReserve" type="number" value="0"></div>
+            </div>
+            <div class="hr"></div>
+            <div class="row" style="align-items:center">
+              <label class="muted">Corruption</label>
+              <label class="tag"><input type="checkbox" id="c_mild"> Mild</label>
+              <label class="tag"><input type="checkbox" id="c_mod"> Moderate</label>
+              <label class="tag"><input type="checkbox" id="c_sev"> Severe</label>
+              <label class="tag"><input type="checkbox" id="c_term"> Terminal</label>
+            </div>
+            <div class="hr"></div>
+            <label>Notes</label>
+            <textarea id="notes" placeholder="Conditions, resistances, weaknesses…"></textarea>
+          </section>
+
+          <section class="panel">
+            <h2>Acting Method & Potions</h2>
+            <label>Acting Method</label>
+            <textarea id="acting" placeholder="Daily behaviors to align with your Sequence."></textarea>
+            <div class="hr"></div>
+            <label>Potion Formulas</label>
+            <textarea id="potions" placeholder="List of potions and key ingredients."></textarea>
+          </section>
+        </div>
+      </div>
+
+      <!-- SKILLS TAB -->
+      <div id="tab-skills" class="tabcontent">
+        <section class="panel">
+          <h2>Skills</h2>
+          <p class="muted" style="margin-top:0">Totals update automatically: <em>Total = Ability Mod + Bonus</em> (use Bonus for proficiency/mastery like +1 or +2).</p>
+          <table id="skillsTbl">
+            <thead>
+              <tr>
+                <th style="width:36%">Skill</th>
+                <th style="width:18%">Ability</th>
+                <th class="right" style="width:18%">Ability Mod</th>
+                <th class="right" style="width:14%">Bonus</th>
+                <th class="right" style="width:14%">Total</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </div>
+
+      <!-- ABILITIES TAB -->
+      <div id="tab-abilities" class="tabcontent">
+        <section class="panel">
+          <h2>Arcana Abilities</h2>
+          <div class="row">
+            <div class="field"><input id="abilityName" placeholder="Ability name"></div>
+            <div class="field"><input id="abilityDesc" placeholder="Short description"></div>
+            <button class="btn accent" id="addAbility">Add Ability</button>
+          </div>
+          <table id="abilitiesTbl">
+            <thead><tr><th>Name</th><th>Description</th><th class="right">Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <section class="panel">
+          <h2>Attacks / Damage</h2>
+          <div class="row">
+            <div class="field"><input id="atkName" placeholder="Attack name (e.g., Astral Bolt)"></div>
+            <div class="small"><input id="atkHit" type="number" placeholder="To-Hit"></div>
+            <div class="small"><input id="atkDice" placeholder="Damage (e.g., 2d6+3)"></div>
+            <div class="field">
+              <select id="atkType">
+                <option>Force</option>
+                <option>Spatial</option>
+                <option>Psychic</option>
+                <option>Radiant</option>
+                <option value="__custom">+ Custom…</option>
+              </select>
+            </div>
+            <div class="field"><input id="atkNotes" placeholder="Notes"></div>
+            <button class="btn accent" id="addAttack">Add Attack</button>
+          </div>
+          <div class="row" id="customTypeRow" style="display:none">
+            <div class="field"><label>Custom Damage Type</label><input id="customType" placeholder="e.g., Distortion"></div>
+            <button class="btn" id="confirmCustomType">Add type</button>
+          </div>
+          <table id="attacksTbl">
+            <thead><tr><th>Name</th><th>To-Hit</th><th>Damage</th><th>Type</th><th>Notes</th><th class="right">Actions</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+      </div>
+
+      <!-- INVENTORY TAB -->
+      <div id="tab-inventory" class="tabcontent">
+        <section class="panel">
+          <h2>Relics & Inventory</h2>
+          <div class="row">
+            <div class="field"><input id="invName" placeholder="Item name"></div>
+            <div class="small"><input id="invQty" type="number" min="1" value="1" placeholder="Qty"></div>
+            <div class="small"><input id="invWeight" type="number" step="0.1" value="0" placeholder="Weight"></div>
+            <div class="field"><input id="invNotes" placeholder="Notes (attunement, effects, etc.)"></div>
+            <button class="btn accent" id="addItem">Add Item</button>
+          </div>
+          <table id="inventoryTbl">
+            <thead><tr><th>Name</th><th>Qty</th><th>Wt</th><th>Subtotal</th><th>Notes</th><th class="right">Actions</th></tr></thead>
+            <tbody></tbody>
+            <tfoot>
+              <tr><td colspan="3" class="right muted">Total Weight</td><td id="totalWeight" class="total">0</td><td colspan="2"></td></tr>
+            </tfoot>
+          </table>
+        </section>
+      </div>
+    </section>
+
+    <footer class="muted" style="margin:8px 0 24px 0">LoM Character Sheet · Local-only storage. Use Export/Import to move between devices.</footer>
+  </div>
+
+<script>
+(function(){
+  // ====== STATE ======
+  const state = {
+    // Updated to 8 abilities you provided (keys must match mapping below)
+    attrs: [
+      { key:'STR', label:'Strength', val:10 },
+      { key:'DEX', label:'Dexterity', val:10 },
+      { key:'CON', label:'Constitution', val:10 },
+      { key:'INT', label:'Intelligence', val:10 },
+      { key:'WIS', label:'Wisdom', val:10 },
+      { key:'CHA', label:'Charisma', val:10 },
+      { key:'SPI', label:'Spirituality', val:10 },
+      { key:'SAN', label:'Sanity', val:10 },
+    ],
+    // Skills list (alphabetical) with governing abilities
+    skills: [
+      { name:'Acrobatics', ability:'DEX', bonus:0 },
+      { name:'Alchemy', ability:'INT', bonus:0 },
+      { name:'Athletics', ability:'STR', bonus:0 },
+      { name:'Deception', ability:'CHA', bonus:0 },
+      { name:'Divination', ability:'SPI', bonus:0 },
+      { name:'Endurance', ability:'STR', bonus:0 },
+      { name:'Firearms / Aim', ability:'DEX', bonus:0 },
+      { name:'Insight', ability:'WIS', bonus:0 },
+      { name:'Intimidation (Physical)', ability:'STR', bonus:0 },
+      { name:'Investigation', ability:'INT', bonus:0 },
+      { name:'Lucidity', ability:'SAN', bonus:0 },
+      { name:'Mediumship', ability:'SPI', bonus:0 },
+      { name:'Occultism', ability:'INT', bonus:0 },
+      { name:'Pain Tolerance', ability:'CON', bonus:0 },
+      { name:'Performance', ability:'CHA', bonus:0 },
+      { name:'Perception', ability:'WIS', bonus:0 },
+      { name:'Persuasion', ability:'CHA', bonus:0 },
+      { name:'Resolve', ability:'SAN', bonus:0 },
+      { name:'Resistance', ability:'CON', bonus:0 },
+      { name:'Ritualism', ability:'WIS', bonus:0 },
+      { name:'Spirit Vision', ability:'SPI', bonus:0 },
+      { name:'Stealth', ability:'DEX', bonus:0 },
+      { name:'Survival', ability:'CON', bonus:0 },
+    ].sort((a,b)=>a.name.localeCompare(b.name)),
+    abilities: [],
+    attacks: [],
+    inventory: []
+  };
+
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const byId = id => document.getElementById(id);
+
+  function modFromScore(x){ return Math.floor((Number(x||0)-10)/2); }
+  const attrIndex = () => Object.fromEntries(state.attrs.map(a=>[a.key,a]));
+
+  // ====== TABS ======
+  const tabButtons = $$('.tabbtn');
+  const tabIndicator = byId('tabIndicator');
+  function activateTab(key){
+    tabButtons.forEach((b,i)=>{
+      const active = b.dataset.tab === key;
+      b.classList.toggle('active', active);
+      byId('tab-'+b.dataset.tab).classList.toggle('active', active);
+      if(active){
+        const w = b.getBoundingClientRect().width;
+        const left = b.offsetLeft;
+        tabIndicator.style.left = left + 'px';
+        tabIndicator.style.width = w + 'px';
+      }
+    });
+  }
+  tabButtons.forEach(btn => btn.addEventListener('click', ()=> activateTab(btn.dataset.tab)));
+  // Initialize indicator position after layout:
+  window.addEventListener('load', ()=> activateTab('attributes'));
+  window.addEventListener('resize', ()=> {
+    const active = $('.tabbtn.active')?.dataset.tab || 'attributes';
+    activateTab(active);
+  });
+
+  // ====== ATTRIBUTES GRID ======
+  const grid = byId('attrGrid');
+  function renderAttrs(){
+    grid.innerHTML = '';
+    state.attrs.forEach((a,i)=>{
+      const box = document.createElement('div');
+      box.className='box';
+      box.innerHTML = `
+        <h3>${a.label} <span class="muted">(${a.key})</span></h3>
+        <input type="number" value="${a.val}" data-i="${i}" class="attrVal">
+        <div class="muted" style="margin-top:6px">mod <span class="pill">${modFromScore(a.val)>=0?'+':''}${modFromScore(a.val)}</span></div>
+      `;
+      grid.appendChild(box);
+    });
+    // bind changes
+    $$('.attrVal').forEach(inp=>{
+      inp.addEventListener('input', e=>{
+        const i = Number(e.target.dataset.i);
+        state.attrs[i].val = Number(e.target.value||0);
+        renderAttrs();
+        renderSkills(); // ensure skills totals live-update
+        autosave();
+      });
+    });
+  }
+  renderAttrs();
+
+  // ====== SKILLS ======
+  const skillsTBody = byId('skillsTbl').querySelector('tbody');
+  function abilityModFor(key){
+    const idx = attrIndex();
+    const found = idx[key];
+    return found ? modFromScore(found.val) : 0;
+  }
+  function renderSkills(){
+    skillsTBody.innerHTML = '';
+    const idx = attrIndex();
+    // in case new attrs added later, keep safe
+    state.skills.forEach((sk, i)=>{
+      const mod = abilityModFor(sk.ability);
+      const total = Number(mod) + Number(sk.bonus||0);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${sk.name}</td>
+        <td><span class="pill">${sk.ability}</span> <span class="muted">(${idx[sk.ability]?.label||'—'})</span></td>
+        <td class="right">${mod>=0?'+':''}${mod}</td>
+        <td class="right">
+          <input type="number" step="1" value="${Number(sk.bonus||0)}" class="skillBonus" data-i="${i}" style="width:70px; text-align:right">
+        </td>
+        <td class="right total">${total>=0?'+':''}${total}</td>
+      `;
+      skillsTBody.appendChild(tr);
+    });
+    $$('.skillBonus').forEach(inp=>{
+      inp.addEventListener('input', e=>{
+        const i = Number(e.target.dataset.i);
+        state.skills[i].bonus = Number(e.target.value||0);
+        renderSkills();
+        autosave();
+      });
+    });
+  }
+  renderSkills();
+
+  // ====== ABILITIES LIST ======
+  const abilitiesTBody = byId('abilitiesTbl').querySelector('tbody');
+  function renderAbilities(){
+    abilitiesTBody.innerHTML = '';
+    state.abilities.forEach((ab, idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${ab.name}</td>
+        <td class="muted">${ab.desc||''}</td>
+        <td class="right">
+          <button class="btn ghost" data-edit="${idx}">Edit</button>
+          <button class="btn danger" data-del="${idx}">Delete</button>
+        </td>`;
+      abilitiesTBody.appendChild(tr);
+    });
+  }
+  byId('addAbility').addEventListener('click',()=>{
+    const name = byId('abilityName').value.trim();
+    const desc = byId('abilityDesc').value.trim();
+    if(!name) return;
+    state.abilities.push({name, desc});
+    byId('abilityName').value=''; byId('abilityDesc').value='';
+    renderAbilities(); autosave();
+  });
+  abilitiesTBody.addEventListener('click',e=>{
+    const del = e.target.dataset.del; const edit = e.target.dataset.edit;
+    if(del!=null){ state.abilities.splice(Number(del),1); renderAbilities(); autosave(); return; }
+    if(edit!=null){
+      const cur = state.abilities[Number(edit)];
+      const name = prompt('Rename ability', cur.name); if(name==null) return;
+      const desc = prompt('Edit description', cur.desc||'');
+      state.abilities[Number(edit)] = {name, desc}; renderAbilities(); autosave();
+    }
+  });
+
+  // ====== ATTACKS ======
+  const attacksTBody = byId('attacksTbl').querySelector('tbody');
+  function renderAttacks(){
+    attacksTBody.innerHTML='';
+    state.attacks.forEach((a,idx)=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${a.name}</td>
+        <td>${a.toHit||''}</td>
+        <td>${a.damage||''}</td>
+        <td><span class="pill">${a.type}</span></td>
+        <td class="muted">${a.notes||''}</td>
+        <td class="right">
+          <button class="btn ghost" data-edit="${idx}">Edit</button>
+          <button class="btn danger" data-del="${idx}">Delete</button>
+        </td>`;
+      attacksTBody.appendChild(tr);
+    });
+  }
+  byId('atkType').addEventListener('change', (e)=>{
+    byId('customTypeRow').style.display = e.target.value === '__custom' ? 'flex' : 'none';
+  });
+  byId('confirmCustomType').addEventListener('click', ()=>{
+    const v = byId('customType').value.trim(); if(!v) return;
+    const sel = byId('atkType');
+    const opt = document.createElement('option'); opt.textContent=v; opt.value=v;
+    sel.insertBefore(opt, sel.lastElementChild); sel.value=v; byId('customType').value='';
+    byId('customTypeRow').style.display='none';
+  });
+  byId('addAttack').addEventListener('click',()=>{
+    const name = byId('atkName').value.trim(); if(!name) return;
+    const toHit = Number(byId('atkHit').value||0);
+    const damage = byId('atkDice').value.trim();
+    const type = byId('atkType').value;
+    const notes = byId('atkNotes').value.trim();
+    state.attacks.push({name,toHit,damage,type,notes});
+    ['atkName','atkHit','atkDice','atkNotes'].forEach(id=>byId(id).value='');
+    renderAttacks(); autosave();
+  });
+  attacksTBody.addEventListener('click',e=>{
+    const del = e.target.dataset.del; const edit = e.target.dataset.edit;
+    if(del!=null){ state.attacks.splice(Number(del),1); renderAttacks(); autosave(); return; }
+    if(edit!=null){
+      const a = state.attacks[Number(edit)];
+      const name = prompt('Attack name', a.name); if(name==null) return;
+      const toHit = prompt('To-Hit', a.toHit); if(toHit==null) return;
+      const damage = prompt('Damage dice', a.damage); if(damage==null) return;
+      const type = prompt('Type', a.type); if(type==null) return;
+      const notes = prompt('Notes', a.notes||'');
+      state.attacks[Number(edit)] = {name, toHit:Number(toHit), damage, type, notes};
+      renderAttacks(); autosave();
+    }
+  });
+
+  // ====== INVENTORY ======
+  const invTBody = byId('inventoryTbl').querySelector('tbody');
+  function totalWeight(){ return state.inventory.reduce((s,it)=> s + (Number(it.qty||0)*Number(it.wt||0)), 0) }
+  function renderInventory(){
+    invTBody.innerHTML='';
+    state.inventory.forEach((it,idx)=>{
+      const sub = (Number(it.qty||0)*Number(it.wt||0));
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${it.name}</td>
+        <td>${it.qty}</td>
+        <td>${it.wt}</td>
+        <td>${sub.toFixed(2)}</td>
+        <td class="muted">${it.notes||''}</td>
+        <td class="right">
+          <button class="btn ghost" data-edit="${idx}">Edit</button>
+          <button class="btn danger" data-del="${idx}">Delete</button>
+        </td>`;
+      invTBody.appendChild(tr);
+    });
+    byId('totalWeight').textContent = totalWeight().toFixed(2);
+  }
+  byId('addItem').addEventListener('click',()=>{
+    const name = byId('invName').value.trim(); if(!name) return;
+    const qty = Number(byId('invQty').value||1);
+    const wt = Number(byId('invWeight').value||0);
+    const notes = byId('invNotes').value.trim();
+    state.inventory.push({name, qty, wt, notes});
+    ['invName','invQty','invWeight','invNotes'].forEach(id=>byId(id).value='');
+    renderInventory(); autosave();
+  });
+  invTBody.addEventListener('click',e=>{
+    const del = e.target.dataset.del; const edit = e.target.dataset.edit;
+    if(del!=null){ state.inventory.splice(Number(del),1); renderInventory(); autosave(); return; }
+    if(edit!=null){
+      const it = state.inventory[Number(edit)];
+      const name = prompt('Item name', it.name); if(name==null) return;
+      const qty = prompt('Qty', it.qty); if(qty==null) return;
+      const wt = prompt('Weight', it.wt); if(wt==null) return;
+      const notes = prompt('Notes', it.notes||'');
+      state.inventory[Number(edit)] = {name, qty:Number(qty), wt:Number(wt), notes};
+      renderInventory(); autosave();
+    }
+  });
+
+  // ====== BIND META FIELDS ======
+  const bindIds = ['name','pathway','sequence','faction','origin','deity','alignment','seqBonus','defense','instinct','agility','vitMax','vitNow','vitReserve','notes','acting','potions'];
+  bindIds.forEach(id=> byId(id)?.addEventListener('input', autosave));
+  $$('#c_mild,#c_mod,#c_sev,#c_term').forEach(el=>el.addEventListener('change', autosave));
+
+  // ====== PERSISTENCE (localStorage) ======
+  const KEY = 'lom.sheet.v2'; // bumped version due to new tabs/skills
+  function serialize(){
+    const data = {
+      identity: Object.fromEntries(bindIds.map(id=>[id, byId(id)?.value ?? ''])),
+      corruption: {
+        mild: byId('c_mild').checked,
+        moderate: byId('c_mod').checked,
+        severe: byId('c_sev').checked,
+        terminal: byId('c_term').checked,
+      },
+      attrs: state.attrs,
+      skills: state.skills,     // <— persist bonuses
+      abilities: state.abilities,
+      attacks: state.attacks,
+      inventory: state.inventory,
+      ui: { activeTab: $('.tabbtn.active')?.dataset.tab || 'attributes' }
+    };
+    return data;
+  }
+  function hydrate(data){
+    if(!data) return;
+    const id = data.identity||{};
+    bindIds.forEach(k=>{ if(byId(k)) byId(k).value = id[k] ?? ''; });
+    byId('c_mild').checked = !!data?.corruption?.mild;
+    byId('c_mod').checked  = !!data?.corruption?.moderate;
+    byId('c_sev').checked  = !!data?.corruption?.severe;
+    byId('c_term').checked = !!data?.corruption?.terminal;
+
+    if(Array.isArray(data.attrs)) state.attrs = data.attrs;
+    if(Array.isArray(data.skills)) {
+      // Merge by skill name to keep future-proof if list changes order
+      const byName = Object.fromEntries(state.skills.map(s=>[s.name,s]));
+      data.skills.forEach(sv=>{
+        if(byName[sv.name]) byName[sv.name].bonus = Number(sv.bonus||0);
+      });
+    }
+    if(Array.isArray(data.abilities)) state.abilities = data.abilities;
+    if(Array.isArray(data.attacks)) state.attacks = data.attacks;
+    if(Array.isArray(data.inventory)) state.inventory = data.inventory;
+
+    renderAttrs(); renderSkills(); renderAbilities(); renderAttacks(); renderInventory();
+
+    // restore UI tab
+    if(data.ui?.activeTab){ activateTab(data.ui.activeTab); }
+  }
+  function autosave(){
+    localStorage.setItem(KEY, JSON.stringify(serialize()));
+    byId('autosaveState').textContent = 'autosave: saved';
+    clearTimeout(window.__as); window.__as = setTimeout(()=>{byId('autosaveState').textContent='autosave: on'}, 900);
+  }
+  function load(){ hydrate(JSON.parse(localStorage.getItem(KEY)||'null')); }
+  function reset(){ if(confirm('Clear all data?')){ localStorage.removeItem(KEY); location.reload(); } }
+  function exportJSON(){
+    const blob = new Blob([JSON.stringify(serialize(), null, 2)], {type:'application/json'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'lom_character.json'; a.click();
+  }
+  function importJSON(){
+    const inp = document.createElement('input'); inp.type='file'; inp.accept='application/json';
+    inp.onchange = () => {
+      const file = inp.files[0]; if(!file) return;
+      const fr = new FileReader(); fr.onload = () => { try{ hydrate(JSON.parse(fr.result)); autosave(); }catch(e){ alert('Invalid JSON'); } };
+      fr.readAsText(file);
+    };
+    inp.click();
+  }
+
+  // Buttons
+  byId('saveBtn').onclick = autosave;
+  byId('loadBtn').onclick = load;
+  byId('exportBtn').onclick = exportJSON;
+  byId('importBtn').onclick = importJSON;
+  byId('resetBtn').onclick = reset;
+
+  // Initial load
+  load();
+})();
+</script>
+</body>
+</html>
