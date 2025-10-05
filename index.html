@@ -41,7 +41,7 @@
   .btn.ghost{background:transparent}
   .btn.accent{background:linear-gradient(180deg,#c8aa63,#a88a43); border-color:#b89a53; color:#181818}
   .btn.danger{border-color:#5a2222; background:linear-gradient(180deg,#6b2626,#451717); color:#f3dada}
-  .pill{padding:4px 8px; border-radius:999px; background:#1a1a22; border:1px solid #30303a; font-size:.78rem; color:var(--muted)}
+  .pill{padding:4px 8px; border-radius:999px; background:#1a1a22; border:1px solid #30303a; font-size:.78rem; color:#cfcfd6}
   .grid{display:grid;gap:14px}
   .cols-3{grid-template-columns:1.1fr 1.3fr 1fr}
   .kpi{display:grid; grid-template-columns:repeat(4,1fr); gap:10px}
@@ -68,10 +68,27 @@
   .tabbtn:hover{filter:brightness(1.06)}
   .tabbtn.active{color:#fff; background:var(--tab-active)}
   .tab-indicator{
-    position:absolute; bottom:0; height:2px; width:25%; left:0; background:var(--tab-ind); transition:left .22s ease, width .22s ease
+    position:absolute; bottom:0; height:2px; width:20%; left:0; background:var(--tab-ind); transition:left .22s ease, width .22s ease
   }
   .tabcontent{display:none; padding:12px}
   .tabcontent.active{display:block}
+
+  /* Backstory preview */
+  .backstory-wrap{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .preview{
+    background:#0e0e12; border:1px solid #2a2a32; border-radius:10px; padding:10px; overflow:auto; min-height:240px
+  }
+  .preview h1,.preview h2,.preview h3{color:#e9dfc8; margin:.6em 0 .3em}
+  .preview p{margin:.4em 0}
+  .preview code{background:#15151b; padding:.1em .3em; border-radius:6px}
+  .preview blockquote{border-left:3px solid #3a3a44; padding-left:10px; color:#b9b9c4; margin:.5em 0}
+  .preview ul, .preview ol{margin:.2em 0 .6em 1.2em}
+  .toolbar{display:flex; gap:10px; align-items:center; margin-bottom:8px}
+  .switch{display:inline-flex; align-items:center; gap:8px}
+  .switch input{accent-color:var(--accent)}
+  @media (max-width: 900px){
+    .backstory-wrap{grid-template-columns:1fr}
+  }
 
   /* Print */
   @media print{
@@ -102,8 +119,10 @@
         <button class="tabbtn" data-tab="skills">Skills</button>
         <button class="tabbtn" data-tab="abilities">Abilities</button>
         <button class="tabbtn" data-tab="inventory">Inventory</button>
+        <button class="tabbtn" data-tab="backstory">Backstory</button>
         <span class="tab-indicator" id="tabIndicator" style="left:0%"></span>
       </div>
+
       <!-- ATTRIBUTES TAB -->
       <div id="tab-attributes" class="tabcontent active">
         <!-- Identity & Meta -->
@@ -248,6 +267,24 @@
           </table>
         </section>
       </div>
+
+      <!-- BACKSTORY TAB -->
+      <div id="tab-backstory" class="tabcontent">
+        <section class="panel">
+          <h2>Backstory</h2>
+          <div class="toolbar">
+            <label class="switch">
+              <input type="checkbox" id="bsPreviewToggle" checked>
+              <span class="muted">Live Markdown Preview</span>
+            </label>
+            <span class="pill">Supports: # Headings, **bold**, *italic*, lists, `code`, > quotes</span>
+          </div>
+          <div class="backstory-wrap">
+            <textarea id="backstory" placeholder="Write your character's backstory here... Use Markdown for structure."></textarea>
+            <div id="backstoryPreview" class="preview"></div>
+          </div>
+        </section>
+      </div>
     </section>
 
     <footer class="muted" style="margin:8px 0 24px 0">LoM Character Sheet · Local-only storage. Use Export/Import to move between devices.</footer>
@@ -257,7 +294,7 @@
 (function(){
   // ====== STATE ======
   const state = {
-    // Updated to 8 abilities you provided (keys must match mapping below)
+    // Abilities (per your list)
     attrs: [
       { key:'STR', label:'Strength', val:10 },
       { key:'DEX', label:'Dexterity', val:10 },
@@ -268,7 +305,7 @@
       { key:'SPI', label:'Spirituality', val:10 },
       { key:'SAN', label:'Sanity', val:10 },
     ],
-    // Skills list (alphabetical) with governing abilities
+    // Skills (alphabetical), with governing ability
     skills: [
       { name:'Acrobatics', ability:'DEX', bonus:0 },
       { name:'Alchemy', ability:'INT', bonus:0 },
@@ -296,7 +333,8 @@
     ].sort((a,b)=>a.name.localeCompare(b.name)),
     abilities: [],
     attacks: [],
-    inventory: []
+    inventory: [],
+    backstory: "" // plain text markdown
   };
 
   const $ = sel => document.querySelector(sel);
@@ -310,7 +348,7 @@
   const tabButtons = $$('.tabbtn');
   const tabIndicator = byId('tabIndicator');
   function activateTab(key){
-    tabButtons.forEach((b,i)=>{
+    tabButtons.forEach((b)=>{
       const active = b.dataset.tab === key;
       b.classList.toggle('active', active);
       byId('tab-'+b.dataset.tab).classList.toggle('active', active);
@@ -321,9 +359,9 @@
         tabIndicator.style.width = w + 'px';
       }
     });
+    autosave(); // persist activeTab
   }
   tabButtons.forEach(btn => btn.addEventListener('click', ()=> activateTab(btn.dataset.tab)));
-  // Initialize indicator position after layout:
   window.addEventListener('load', ()=> activateTab('attributes'));
   window.addEventListener('resize', ()=> {
     const active = $('.tabbtn.active')?.dataset.tab || 'attributes';
@@ -344,13 +382,12 @@
       `;
       grid.appendChild(box);
     });
-    // bind changes
     $$('.attrVal').forEach(inp=>{
       inp.addEventListener('input', e=>{
         const i = Number(e.target.dataset.i);
         state.attrs[i].val = Number(e.target.value||0);
         renderAttrs();
-        renderSkills(); // ensure skills totals live-update
+        renderSkills();
         autosave();
       });
     });
@@ -367,7 +404,6 @@
   function renderSkills(){
     skillsTBody.innerHTML = '';
     const idx = attrIndex();
-    // in case new attrs added later, keep safe
     state.skills.forEach((sk, i)=>{
       const mod = abilityModFor(sk.ability);
       const total = Number(mod) + Number(sk.bonus||0);
@@ -528,13 +564,63 @@
     }
   });
 
+  // ====== BACKSTORY ======
+  const bsText = byId('backstory');
+  const bsPrev = byId('backstoryPreview');
+  const bsToggle = byId('bsPreviewToggle');
+
+  // Minimal Markdown renderer (safe subset)
+  function mdEscape(s){
+    return s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  }
+  function renderMarkdown(src){
+    let s = mdEscape(src);
+
+    // code (inline) `code`
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // headings
+    s = s.replace(/^######\s?(.*)$/gm, '<h6>$1</h6>');
+    s = s.replace(/^#####\s?(.*)$/gm, '<h5>$1</h5>');
+    s = s.replace/^####\s?(.*)$/gm, '<h4>$1</h4>');
+    s = s.replace(/^###\s?(.*)$/gm, '<h3>$1</h3>');
+    s = s.replace(/^##\s?(.*)$/gm, '<h2>$1</h2>');
+    s = s.replace(/^#\s?(.*)$/gm, '<h1>$1</h1>');
+
+    // blockquote
+    s = s.replace(/^\>\s?(.*)$/gm, '<blockquote>$1</blockquote>');
+
+    // bold/italic (order matters)
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+    // lists
+    s = s.replace(/^(?:-|\*)\s+(.*)$/gm, '<li>$1</li>');
+    s = s.replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>');
+
+    // paragraphs (wrap bare lines)
+    s = s.replace(/^(?!<h\d|<ul>|<li>|<blockquote>|<code>|<\/li>|<\/ul>|\s*$)(.+)$/gm, '<p>$1</p>');
+
+    // collapse nested UL wrappers
+    s = s.replace(/<\/ul>\s*<ul>/g, '');
+
+    return s;
+  }
+  function renderBackstory(){
+    const text = bsText.value || '';
+    bsPrev.innerHTML = renderMarkdown(text);
+    bsPrev.style.display = bsToggle.checked ? 'block' : 'none';
+  }
+  if(bsText){ bsText.addEventListener('input', ()=>{ state.backstory = bsText.value; renderBackstory(); autosave(); }); }
+  if(bsToggle){ bsToggle.addEventListener('change', renderBackstory); }
+
   // ====== BIND META FIELDS ======
   const bindIds = ['name','pathway','sequence','faction','origin','deity','alignment','seqBonus','defense','instinct','agility','vitMax','vitNow','vitReserve','notes','acting','potions'];
   bindIds.forEach(id=> byId(id)?.addEventListener('input', autosave));
   $$('#c_mild,#c_mod,#c_sev,#c_term').forEach(el=>el.addEventListener('change', autosave));
 
   // ====== PERSISTENCE (localStorage) ======
-  const KEY = 'lom.sheet.v2'; // bumped version due to new tabs/skills
+  const KEY = 'lom.sheet.v3'; // bumped version due to Backstory tab
   function serialize(){
     const data = {
       identity: Object.fromEntries(bindIds.map(id=>[id, byId(id)?.value ?? ''])),
@@ -545,11 +631,13 @@
         terminal: byId('c_term').checked,
       },
       attrs: state.attrs,
-      skills: state.skills,     // <— persist bonuses
+      skills: state.skills,     // persist bonuses
       abilities: state.abilities,
       attacks: state.attacks,
       inventory: state.inventory,
-      ui: { activeTab: $('.tabbtn.active')?.dataset.tab || 'attributes' }
+      backstory: state.backstory || '',
+      ui: { activeTab: $('.tabbtn.active')?.dataset.tab || 'attributes',
+            previewOn: byId('bsPreviewToggle')?.checked ?? true }
     };
     return data;
   }
@@ -564,7 +652,6 @@
 
     if(Array.isArray(data.attrs)) state.attrs = data.attrs;
     if(Array.isArray(data.skills)) {
-      // Merge by skill name to keep future-proof if list changes order
       const byName = Object.fromEntries(state.skills.map(s=>[s.name,s]));
       data.skills.forEach(sv=>{
         if(byName[sv.name]) byName[sv.name].bonus = Number(sv.bonus||0);
@@ -573,10 +660,14 @@
     if(Array.isArray(data.abilities)) state.abilities = data.abilities;
     if(Array.isArray(data.attacks)) state.attacks = data.attacks;
     if(Array.isArray(data.inventory)) state.inventory = data.inventory;
+    if(typeof data.backstory === 'string'){ state.backstory = data.backstory; }
 
+    // render UI
     renderAttrs(); renderSkills(); renderAbilities(); renderAttacks(); renderInventory();
+    if(bsText){ bsText.value = state.backstory || ''; }
+    if(typeof data.ui?.previewOn === 'boolean' && byId('bsPreviewToggle')) byId('bsPreviewToggle').checked = data.ui.previewOn;
+    renderBackstory();
 
-    // restore UI tab
     if(data.ui?.activeTab){ activateTab(data.ui.activeTab); }
   }
   function autosave(){
